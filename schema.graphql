@@ -1,0 +1,32 @@
+schema {
+    query: Query
+}
+
+type Company {
+    companyId: Int!
+    companyName: String!
+    headcount: Int!
+    acquiredBy: Company
+    acquired: [Company!]!
+    employees(exCompanyIds: [Int!]! = []): [PersonEmployment!]
+}
+
+type PersonEmployment {
+    person: Person!
+    company: Company!
+    startDate: String
+    endDate: String
+    employmentTitle: String!
+    isCurrentlyEmployed: Boolean!
+}
+
+type Person {
+    personId: Int!
+}
+
+type Query {
+    company(companyId: Int!): Company
+    # acquiredBy(companyId: ID!): [Company!]!
+    # exEmployeeLookup(exCompanyId: ID!, currentCompanyId: ID!): [Person!]!
+    # currentEmployeeLookup(companyId: ID!): [Person!]!
+}
