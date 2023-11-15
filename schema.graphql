@@ -27,9 +27,9 @@ type PersonEmployment {
 }
 
 input AcquisitionInput {
-    parentCompanyId: Int!
-    acquiredCompanyId: Int!
-    mergedIntoParentCompany: Boolean!
+    parent_company_id: Int!
+    acquired_company_id: Int!
+    merged_into_parent_company: Boolean!
 }
 
 input EmploymentInput {

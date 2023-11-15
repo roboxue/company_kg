@@ -17,22 +17,6 @@ company = ObjectType("Company")
 person_employment = ObjectType("PersonEmployment")
 person = ObjectType("Person")
 
-with open("acqusition.json") as j, Session(engine) as session:
-    for a in json.load(j):
-        acquisition = session.execute(insert(Acquisition).values(
-            parent_company_id=a["parent_company_id"],
-            acquired_company_id=a["acquired_company_id"],
-            merged_into_parent_company=a["merged_into_parent_company"],
-        ))
-        session.add(EntityLink(
-            left_id=a["parent_company_id"], left_type=EntityType.COMPANY,
-            right_id=a["acquired_company_id"], right_type=EntityType.COMPANY,
-            relationship_id=acquisition.inserted_primary_key.id,
-            relationship_type=EntityRelationship.MERGED if a["merged_into_parent_company"]
-            else EntityRelationship.ACQUIRED
-        ))
-    session.commit()
-
 with open("person_employment.json") as j, Session(engine) as session:
     for e in json.load(j):
         previously_employed = "end_date" in e and e["end_date"] is not None
@@ -75,6 +59,27 @@ def resolve_mutation_add_company(_, info, companies):
     except BaseException as e:
         return str(e)
 
+@mutation.field("addAquisition")
+def resolve_mutation_add_aquisition(_, info, acquisitions):
+    try:
+        with Session(engine) as session:
+            for a in acquisitions:
+                acquisition = session.execute(insert(Acquisition).values(
+                    parent_company_id=a["parent_company_id"],
+                    acquired_company_id=a["acquired_company_id"],
+                    merged_into_parent_company=a["merged_into_parent_company"],
+                ))
+                session.add(EntityLink(
+                    left_id=a["parent_company_id"], left_type=EntityType.COMPANY,
+                    right_id=a["acquired_company_id"], right_type=EntityType.COMPANY,
+                    relationship_id=acquisition.inserted_primary_key.id,
+                    relationship_type=EntityRelationship.MERGED if a["merged_into_parent_company"]
+                    else EntityRelationship.ACQUIRED
+                ))
+            session.commit()
+        return "Done"
+    except BaseException as e:
+        return str(e)
 
 @company.field("acquiredBy")
 def resolve_company_acquired_by(obj, info):
