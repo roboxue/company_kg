@@ -1,4 +1,4 @@
-from ariadne import ObjectType, QueryType, gql, graphql_sync, load_schema_from_path, make_executable_schema
+from ariadne import MutationType, ObjectType, QueryType, load_schema_from_path, make_executable_schema
 from ariadne.asgi import GraphQL
 from graphql_sync_dataloaders import DeferredExecutionContext, SyncDataLoader
 import uvicorn
@@ -12,15 +12,10 @@ from store import DataStore
 type_defs = load_schema_from_path("schema.graphql")
 
 query = QueryType()
+mutation = MutationType()
 company = ObjectType("Company")
 person_employment = ObjectType("PersonEmployment")
 person = ObjectType("Person")
-
-with open("company.json") as j, Session(engine) as session:
-    for c in json.load(j):
-        session.add(Company(
-            id=c["company_id"], name=c["company_name"], headcount=c["headcount"] or 0))
-    session.commit()
 
 with open("acqusition.json") as j, Session(engine) as session:
     for a in json.load(j):
@@ -66,6 +61,19 @@ def resolve_query_company(obj, info, company_id):
 @query.field("person")
 def resolve_query_person(obj, info, person_id):
     return info.context["person_data_loader"].load(person_id)
+
+
+@mutation.field("addCompany")
+def resolve_mutation_add_company(_, info, companies):
+    try:
+        with Session(engine) as session:
+            for c in companies:
+                session.add(Company(
+                    id=c["company_id"], name=c["company_name"], headcount=c["headcount"] or 0))
+            session.commit()
+        return "Done"
+    except BaseException as e:
+        return str(e)
 
 
 @company.field("acquiredBy")
@@ -144,7 +152,7 @@ def resolve_person_employment_history(obj, info):
 
 
 schema = make_executable_schema(
-    type_defs, query, company, person_employment, person,
+    type_defs, query, mutation, company, person_employment, person,
     convert_names_case=True,
 )
 store = DataStore(engine)

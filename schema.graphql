@@ -1,13 +1,14 @@
 schema {
     query: Query
+    mutation: Mutation
 }
 
 type Company {
     companyId: Int!
     companyName: String!
-    headcount: Int!
+    headcount: Int
     acquiredBy: Company
-    acquired: [Company!]!
+    acquired: [Company!]
     employees(exCompanyIds: [Int!]! = []): [PersonEmployment!]
 }
 
@@ -25,7 +26,33 @@ type PersonEmployment {
     isCurrentlyEmployed: Boolean!
 }
 
+input AcquisitionInput {
+    parentCompanyId: Int!
+    acquiredCompanyId: Int!
+    mergedIntoParentCompany: Boolean!
+}
+
+input EmploymentInput {
+    personId: Int!
+    companyId: Int!
+    employmentTitle: String!
+    startDate: String
+    endDate: String
+}
+
+input CompanyInput {
+    company_id: Int!
+    company_name: String!
+    headcount: Int
+}
+
 type Query {
     company(companyId: Int!): Company
     person(personId: Int!): Person
+}
+
+type Mutation {
+    addCompany(companies: [CompanyInput!]!): String!
+    addAquisition(acquisitions: [AcquisitionInput!]!): String!
+    addEmployment(employments: [EmploymentInput!]!): String!
 }
