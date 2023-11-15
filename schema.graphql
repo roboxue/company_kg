@@ -12,7 +12,8 @@ type Company {
 }
 
 type PersonEmployment {
-    person: Person!
+    person_id: Int!
+    company_id: Int!
     company: Company!
     startDate: String
     endDate: String
@@ -20,13 +21,6 @@ type PersonEmployment {
     isCurrentlyEmployed: Boolean!
 }
 
-type Person {
-    personId: Int!
-}
-
 type Query {
     company(companyId: Int!): Company
-    # acquiredBy(companyId: ID!): [Company!]!
-    # exEmployeeLookup(exCompanyId: ID!, currentCompanyId: ID!): [Person!]!
-    # currentEmployeeLookup(companyId: ID!): [Person!]!
 }

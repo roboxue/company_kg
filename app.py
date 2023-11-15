@@ -76,12 +76,8 @@ def resolve_company_employees(obj, *_, ex_company_ids):
             company_id=obj["company_id"], end_date=None)
         for e in session.scalars(stmt):
             yield {
-                "person": {
-                    "person_id": e.person_id
-                },
-                "company": {
-                    "company_id": e.company_id
-                },
+                "person_id": e.person_id,
+                "company_id": e.company_id,
                 "employment_title": e.employment_title,
                 "start_date": e.start_date,
                 "end_date": e.end_date,
@@ -95,7 +91,7 @@ def resolve_person_employment_is_currently_employed(obj, *_):
 
 @person_employment.field("company")
 def resolve_person_employment_company(obj, *_):
-    return resolve_query_company(company_id=obj["company"]["company_id"])
+    return resolve_query_company(company_id=obj["company_id"])
 
 
 schema = make_executable_schema(
