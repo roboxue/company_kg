@@ -2,7 +2,6 @@ from ariadne import MutationType, ObjectType, QueryType, load_schema_from_path, 
 from ariadne.asgi import GraphQL
 from graphql_sync_dataloaders import DeferredExecutionContext, SyncDataLoader
 import uvicorn
-import json
 from store import engine, Company, Acquisition, Employment, EntityLink, EntityType, EntityRelationship
 from sqlalchemy.orm import Session
 from sqlalchemy import select, insert
@@ -16,25 +15,6 @@ mutation = MutationType()
 company = ObjectType("Company")
 person_employment = ObjectType("PersonEmployment")
 person = ObjectType("Person")
-
-with open("person_employment.json") as j, Session(engine) as session:
-    for e in json.load(j):
-        previously_employed = "end_date" in e and e["end_date"] is not None
-        employment = session.execute(insert(Employment).values(
-            company_id=e["company_id"],
-            person_id=e["person_id"],
-            employment_title=e["employment_title"],
-            start_date=e["start_date"] if "start_date" in e else None,
-            end_date=e["end_date"] if previously_employed else None,
-        ))
-        session.add(EntityLink(
-            left_id=e["person_id"], left_type=EntityType.PERSON,
-            right_id=e["company_id"], right_type=EntityType.COMPANY,
-            relationship_id=employment.inserted_primary_key.id,
-            relationship_type=EntityRelationship.PREVIOUSLY_EMPLOYED_AT if previously_employed
-            else EntityRelationship.CURRENTLY_EMPLOYED_AT
-        ))
-    session.commit()
 
 
 @query.field("company")
@@ -59,6 +39,7 @@ def resolve_mutation_add_company(_, info, companies):
     except BaseException as e:
         return str(e)
 
+
 @mutation.field("addAquisition")
 def resolve_mutation_add_aquisition(_, info, acquisitions):
     try:
@@ -80,6 +61,33 @@ def resolve_mutation_add_aquisition(_, info, acquisitions):
         return "Done"
     except BaseException as e:
         return str(e)
+
+
+@mutation.field("addEmployment")
+def resolve_mutation_add_employment(_, info, employments):
+    try:
+        with Session(engine) as session:
+            for e in employments:
+                previously_employed = "end_date" in e and e["end_date"] is not None
+                employment = session.execute(insert(Employment).values(
+                    company_id=e["company_id"],
+                    person_id=e["person_id"],
+                    employment_title=e["employment_title"],
+                    start_date=e["start_date"] if "start_date" in e else None,
+                    end_date=e["end_date"] if previously_employed else None,
+                ))
+                session.add(EntityLink(
+                    left_id=e["person_id"], left_type=EntityType.PERSON,
+                    right_id=e["company_id"], right_type=EntityType.COMPANY,
+                    relationship_id=employment.inserted_primary_key.id,
+                    relationship_type=EntityRelationship.PREVIOUSLY_EMPLOYED_AT if previously_employed
+                    else EntityRelationship.CURRENTLY_EMPLOYED_AT
+                ))
+            session.commit()
+        return "Done"
+    except BaseException as e:
+        return str(e)
+
 
 @company.field("acquiredBy")
 def resolve_company_acquired_by(obj, info):

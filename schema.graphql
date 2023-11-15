@@ -33,11 +33,11 @@ input AcquisitionInput {
 }
 
 input EmploymentInput {
-    personId: Int!
-    companyId: Int!
-    employmentTitle: String!
-    startDate: String
-    endDate: String
+    person_id: Int!
+    company_id: Int!
+    employment_title: String!
+    start_date: String
+    end_date: String
 }
 
 input CompanyInput {
