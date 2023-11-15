@@ -14,6 +14,7 @@ type_defs = load_schema_from_path("schema.graphql")
 query = QueryType()
 company = ObjectType("Company")
 person_employment = ObjectType("PersonEmployment")
+person = ObjectType("Person")
 
 with open("company.json") as j, Session(engine) as session:
     for c in json.load(j):
@@ -62,6 +63,13 @@ def resolve_query_company(obj, info, company_id):
     return info.context["company_data_loader"].load(company_id)
 
 
+@query.field("person")
+def resolve_query_person(obj, info, person_id):
+    return {
+        "person_id": person_id
+    }
+
+
 @company.field("acquiredBy")
 def resolve_company_acquired_by(obj, info):
     with Session(engine) as session:
@@ -100,10 +108,11 @@ def resolve_company_employees(obj, info, ex_company_ids):
                 .where(EntityLink.right_id.in_(ex_company_ids))
                 .where(EntityLink.relationship_type.is_(EntityRelationship.PREVIOUSLY_EMPLOYED_AT))
                 .distinct()
-                )
-            stmt = stmt.where(EntityLink.left_id.in_(person_worked_in_ex_companies))
+            )
+            stmt = stmt.where(EntityLink.left_id.in_(
+                person_worked_in_ex_companies))
         return [info.context["employment_data_loader"].load(e.relationship_id)
-                 for e in session.scalars(stmt)]
+                for e in session.scalars(stmt)]
 
 
 @person_employment.field("isCurrentlyEmployed")
@@ -116,8 +125,23 @@ def resolve_person_employment_company(obj, info):
     return info.context["company_data_loader"].load(obj["company_id"])
 
 
+@person.field("employment_history")
+def resolve_person_employment_history(obj, info):
+    with Session(engine) as session:
+        stmt = (
+            select(EntityLink)
+            .where(EntityLink.left_type.is_(EntityType.PERSON))
+            .where(EntityLink.left_id.is_(obj["person_id"]))
+            .where(EntityLink.relationship_type.in_([
+                EntityRelationship.CURRENTLY_EMPLOYED_AT, EntityRelationship.PREVIOUSLY_EMPLOYED_AT
+            ]))
+        )
+        return [info.context["employment_data_loader"].load(e.relationship_id)
+                for e in session.scalars(stmt)]
+
+
 schema = make_executable_schema(
-    type_defs, query, company, person_employment,
+    type_defs, query, company, person_employment, person,
     convert_names_case=True,
 )
 store = DataStore(engine)

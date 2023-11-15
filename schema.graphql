@@ -11,6 +11,11 @@ type Company {
     employees(exCompanyIds: [Int!]! = []): [PersonEmployment!]
 }
 
+type Person {
+    person_id: Int!
+    employment_history: [PersonEmployment!]!
+}
+
 type PersonEmployment {
     person_id: Int!
     company: Company!
@@ -22,4 +27,5 @@ type PersonEmployment {
 
 type Query {
     company(companyId: Int!): Company
+    person(personId: Int!): Person
 }
