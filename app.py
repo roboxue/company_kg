@@ -5,6 +5,7 @@ import uvicorn
 from store import engine, Company, Acquisition, Employment, EntityLink, EntityType, EntityRelationship
 from sqlalchemy.orm import Session
 from sqlalchemy import select, insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 
 from store import DataStore
 
@@ -31,9 +32,15 @@ def resolve_query_person(obj, info, person_id):
 def resolve_mutation_add_company(_, info, companies):
     try:
         with Session(engine) as session:
-            for c in companies:
-                session.add(Company(
-                    id=c["company_id"], name=c["company_name"], headcount=c["headcount"] or 0))
+            stmt = sqlite_upsert(Company).values([{
+                "id": c["company_id"],
+                "name": c["company_name"],
+                "headcount": c["headcount"] or 0
+            } for c in companies])
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[Company.id], 
+                set_=dict(name=stmt.excluded.name, headcount=stmt.excluded.headcount))
+            session.execute(stmt)
             session.commit()
         return "Done"
     except BaseException as e:

@@ -1,6 +1,6 @@
 import enum
 from typing import List, Optional
-from sqlalchemy import Engine, Enum, String, select
+from sqlalchemy import Engine, Enum, Index, String, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 
 
@@ -45,6 +45,7 @@ class Employment(Base):
         return f"{self.__tablename__}(company_id={self.company_id!r}, employment_title={self.employment_title}, " + \
             f"person_id={self.person_id!r}, start_date={self.start_date!r}, end_date={self.end_date!r})"
 
+Index("unique_idx_employment_company_person_title_startdate", Employment.company_id, Employment.person_id, Employment.employment_title, Employment.start_date, unique=True)
 
 class Acquisition(Base):
     __tablename__ = "Acquisition"
@@ -57,6 +58,8 @@ class Acquisition(Base):
     def __repr__(self) -> str:
         return f"{self.__tablename__}(parent_company_id={self.parent_company_id!r}, " + \
             f"acquired_company_id={self.acquired_company_id!r}, merged_into_parent_company={self.merged_into_parent_company!r})"
+
+Index("unique_idx_parent_child", Acquisition.parent_company_id, Acquisition.acquired_company_id, unique=True)
 
 
 class EntityLink(Base):
