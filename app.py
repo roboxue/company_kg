@@ -93,6 +93,15 @@ def resolve_company_employees(obj, info, ex_company_ids):
             .where(EntityLink.right_id.in_(company_ids))
             .where(EntityLink.relationship_type.is_(EntityRelationship.CURRENTLY_EMPLOYED_AT))
         )
+        if len(ex_company_ids) > 0:
+            person_worked_in_ex_companies = (
+                select(EntityLink.left_id)
+                .where(EntityLink.right_type.is_(EntityType.COMPANY))
+                .where(EntityLink.right_id.in_(ex_company_ids))
+                .where(EntityLink.relationship_type.is_(EntityRelationship.PREVIOUSLY_EMPLOYED_AT))
+                .distinct()
+                )
+            stmt = stmt.where(EntityLink.left_id.in_(person_worked_in_ex_companies))
         return [info.context["employment_data_loader"].load(e.relationship_id)
                  for e in session.scalars(stmt)]
 
