@@ -101,3 +101,8 @@ class DataStore():
                 "end_date": e.end_date,
                 } for e in session.scalars(stmt)}
             return [result_map.get(id) for id in ids]
+        
+    def get_person(self, ids: List[int]) -> List[dict]:
+        return [{
+            "person_id": id
+        } for id in ids]

@@ -17,7 +17,7 @@ type Person {
 }
 
 type PersonEmployment {
-    person_id: Int!
+    person: Person!
     company: Company!
     startDate: String
     endDate: String

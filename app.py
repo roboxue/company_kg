@@ -65,9 +65,7 @@ def resolve_query_company(obj, info, company_id):
 
 @query.field("person")
 def resolve_query_person(obj, info, person_id):
-    return {
-        "person_id": person_id
-    }
+    return info.context["person_data_loader"].load(person_id)
 
 
 @company.field("acquiredBy")
@@ -125,6 +123,11 @@ def resolve_person_employment_company(obj, info):
     return info.context["company_data_loader"].load(obj["company_id"])
 
 
+@person_employment.field("person")
+def resolve_person_employment_person(obj, info):
+    return info.context["person_data_loader"].load(obj["person_id"])
+
+
 @person.field("employment_history")
 def resolve_person_employment_history(obj, info):
     with Session(engine) as session:
@@ -148,6 +151,7 @@ store = DataStore(engine)
 app = GraphQL(schema, debug=True, context_value={
     "company_data_loader": SyncDataLoader(store.get_company),
     "employment_data_loader": SyncDataLoader(store.get_employment),
+    "person_data_loader": SyncDataLoader(store.get_person),
 }, execution_context_class=DeferredExecutionContext)
 
 if __name__ == "__main__":
