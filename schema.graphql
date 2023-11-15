@@ -13,7 +13,6 @@ type Company {
 
 type PersonEmployment {
     person_id: Int!
-    company_id: Int!
     company: Company!
     startDate: String
     endDate: String

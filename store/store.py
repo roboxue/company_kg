@@ -1,9 +1,11 @@
-from typing import Optional
-from sqlalchemy import String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from typing import List, Optional
+from sqlalchemy import Engine, String, select
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+
 
 class Base(DeclarativeBase):
     pass
+
 
 class Company(Base):
     __tablename__ = "Company"
@@ -42,3 +44,18 @@ class Acquisition(Base):
     def __repr__(self) -> str:
         return f"{self.__tablename__}(parent_company_id={self.parent_company_id!r}, " + \
             f"acquired_company_id={self.acquired_company_id!r}, merged_into_parent_company={self.merged_into_parent_company!r})"
+
+
+class DataStore():
+    def __init__(self, engine: Engine) -> None:
+        self.engine = engine
+
+    def get_company(self, company_ids: List[int]) -> List[Company]:
+        with Session(self.engine) as session:
+            stmt = select(Company).where(Company.id.in_(company_ids))
+            company_map = {c.id: {
+                "company_id": c.id,
+                "company_name": c.name,
+                "headcount": c.headcount
+            } for c in session.scalars(stmt)}
+            return [company_map.get(id) for id in company_ids]

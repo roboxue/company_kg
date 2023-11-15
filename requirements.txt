@@ -1,3 +1,4 @@
 uvicorn==0.24
 ariadne==0.21
 SQLAlchemy==2.0.23
+graphql-sync-dataloaders==0.1.1
