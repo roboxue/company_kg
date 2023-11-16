@@ -6,7 +6,7 @@ schema {
 type Company {
     companyId: Int!
     companyName: String!
-    headcount: Int
+    headcount: Int!
     acquiredBy: Company
     acquired: [Company!]
     employees(exCompanyIds: [Int!]! = []): [PersonEmployment!]
@@ -53,6 +53,12 @@ type AcquisitionRow {
     merged_into_parent_company: Boolean!
 }
 
+type CompanyRow {
+    company_id: Int!
+    company_name: String!
+    headcount: Int!
+}
+
 type EntityLinkRow {
     id: Int!
     left_id: Int!
@@ -67,6 +73,7 @@ type Query {
     company(companyId: Int!): Company
     person(personId: Int!): Person
     debugAquisition: [AcquisitionRow!]!
+    debugCompany: [CompanyRow!]!
     debugEntityLink: [EntityLinkRow!]!
 }
 

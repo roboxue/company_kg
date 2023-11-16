@@ -1,7 +1,7 @@
 from ariadne import MutationType, ObjectType, QueryType
 from store import Company, Acquisition, Employment, EntityLink, EntityType, EntityRelationship
 from sqlalchemy.orm import Session
-from sqlalchemy import Engine, insert, select
+from sqlalchemy import Engine, insert, select, update
 from sqlalchemy.dialects.sqlite import insert as sqlite_upsert
 
 
@@ -26,11 +26,10 @@ class Resolver:
         person_employment.set_field(
             "person", self.resolve_person_employment_person)
 
-    def resolve_debug_query(self, query: QueryType):
+    def resolve_query(self, query: QueryType):
+        query.set_field("debugCompany", self.resolve_debug_company)
         query.set_field("debugAquisition", self.resolve_debug_aquisition)
         query.set_field("debugEntityLink", self.resolve_debug_entity_link)
-
-    def resolve_query(self, query: QueryType):
         query.set_field("company", self.resolve_query_company)
         query.set_field("person", self.resolve_query_person)
 
@@ -43,25 +42,45 @@ class Resolver:
 
     def resolve_company_acquired_by(self, obj, info):
         with Session(self.engine) as session:
-            stmt = select(Acquisition).filter_by(
-                acquired_company_id=obj["company_id"])
+            stmt = (
+                select(EntityLink)
+                .where(EntityLink.right_id.is_(obj["company_id"]))
+                .where(EntityLink.right_type.is_(EntityType.COMPANY))
+                .where(EntityLink.relationship_type.in_([
+                    EntityRelationship.ACQUIRED, EntityRelationship.MERGED
+                ]))
+            )
             c = session.scalar(stmt)
             if c is None:
                 return None
-            return info.context["company_data_loader"].load(c.parent_company_id)
+            return info.context["company_data_loader"].load(c.left_id)
 
     def resolve_company_acquired(self, obj, info):
         with Session(self.engine) as session:
-            stmt = select(Acquisition).filter_by(
-                parent_company_id=obj["company_id"])
-            return [info.context["company_data_loader"].load(c.acquired_company_id) for c in session.scalars(stmt)]
+            stmt = (
+                select(EntityLink)
+                .where(EntityLink.left_id.is_(obj["company_id"]))
+                .where(EntityLink.left_type.is_(EntityType.COMPANY))
+                .where(EntityLink.relationship_type.in_([
+                    EntityRelationship.ACQUIRED, EntityRelationship.MERGED, EntityRelationship.INDIRECTLY_ACQUIRED
+                ]))
+            )
+            return [info.context["company_data_loader"].load(c.right_id)
+                    for c in session.scalars(stmt)]
 
     def resolve_company_employees(self, obj, info, ex_company_ids):
         with Session(self.engine) as session:
             company_ids = [obj["company_id"]]
-            if "acquired" in obj:
-                company_ids.extend([sub["company_id"]
-                                   for sub in obj["acquired"]])
+            # Look for subsidaries
+            stmt = (
+                select(EntityLink.right_id)
+                .where(EntityLink.left_id.is_(obj["company_id"]))
+                .where(EntityLink.left_type.is_(EntityType.COMPANY))
+                .where(EntityLink.relationship_type.in_([
+                    EntityRelationship.ACQUIRED, EntityRelationship.MERGED, EntityRelationship.INDIRECTLY_ACQUIRED
+                ]))
+            )
+            company_ids.extend(session.scalars(stmt).all())
             stmt = (
                 select(EntityLink)
                 .where(EntityLink.right_type.is_(EntityType.COMPANY))
@@ -113,6 +132,14 @@ class Resolver:
         info.context["person_data_loader"].clear(person_id)
         return info.context["person_data_loader"].load(person_id)
 
+    def resolve_debug_company(self, obj, info):
+        with Session(self.engine) as session:
+            return [{
+                "company_id": r.id,
+                "company_name": r.name,
+                "headoucnt": r.headcount,
+            } for r in session.scalars(select(Company)).all()]
+
     def resolve_debug_aquisition(self, obj, info):
         with Session(self.engine) as session:
             return [{
@@ -160,6 +187,7 @@ class Resolver:
                         acquired_company_id=a["acquired_company_id"],
                         merged_into_parent_company=a["merged_into_parent_company"])
                     acquisition = session.execute(stmt)
+                    # Insert the acquisition record
                     session.add(EntityLink(
                         left_id=a["parent_company_id"], left_type=EntityType.COMPANY,
                         right_id=a["acquired_company_id"], right_type=EntityType.COMPANY,
@@ -167,6 +195,44 @@ class Resolver:
                         relationship_type=EntityRelationship.MERGED if a["merged_into_parent_company"]
                         else EntityRelationship.ACQUIRED
                     ))
+                    # Check if the parent company has already been acquired
+                    grandfather_id = a["parent_company_id"]
+                    grandfather = session.scalar(select(EntityLink)
+                                                 .where(EntityLink.right_id.is_(a["parent_company_id"]))
+                                                 .where(EntityLink.right_type.is_(EntityType.COMPANY))
+                                                 .where(EntityLink.relationship_type.in_([EntityRelationship.MERGED, EntityRelationship.ACQUIRED]))
+                                                 )
+                    if grandfather is not None:
+                    # If the parent company has already been acquired, the current acquisitoin is indirectly acquired by grandfather
+                        grandfather_id = grandfather.left_id
+                        session.add(EntityLink(
+                            left_id=grandfather_id, left_type=EntityType.COMPANY,
+                            right_id=a["acquired_company_id"], right_type=EntityType.COMPANY,
+                            relationship_id=acquisition.inserted_primary_key.id,
+                            relationship_type=EntityRelationship.INDIRECTLY_ACQUIRED
+                        ))
+                    # The acquired companies's previous indirect acquisition are now indirectly linked to the parent company or grandfather
+                    stmt = (
+                        update(EntityLink)
+                        .where(EntityLink.left_id.is_(a["acquired_company_id"]))
+                        .where(EntityLink.left_type.is_(EntityType.COMPANY))
+                        .where(EntityLink.relationship_type.in_([EntityRelationship.INDIRECTLY_ACQUIRED]))
+                        .values(left_id=grandfather_id)
+                    )
+                    session.execute(stmt)
+                    # The acquired companies's previous direct acquisition are now indirectly linked to the parent company or grandfather
+                    for direct_acquisition in session.scalars(
+                        select(EntityLink.right_id)
+                        .where(EntityLink.left_id.is_(a["acquired_company_id"]))
+                        .where(EntityLink.left_type.is_(EntityType.COMPANY))
+                        .where(EntityLink.relationship_type.in_([EntityRelationship.MERGED, EntityRelationship.ACQUIRED]))
+                    ):
+                        session.add(EntityLink(
+                            left_id=grandfather_id, left_type=EntityType.COMPANY,
+                            right_id=direct_acquisition, right_type=EntityType.COMPANY,
+                            relationship_id=acquisition.inserted_primary_key.id,
+                            relationship_type=EntityRelationship.INDIRECTLY_ACQUIRED
+                        ))
                 session.commit()
             return "Done"
         except BaseException as e:

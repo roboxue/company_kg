@@ -12,8 +12,9 @@ class EntityType(enum.Enum):
 class EntityRelationship(enum.Enum):
     ACQUIRED = 1
     MERGED = 2
-    CURRENTLY_EMPLOYED_AT = 3
-    PREVIOUSLY_EMPLOYED_AT = 4
+    INDIRECTLY_ACQUIRED = 3
+    CURRENTLY_EMPLOYED_AT = 4
+    PREVIOUSLY_EMPLOYED_AT = 5
 
 
 class Base(DeclarativeBase):
