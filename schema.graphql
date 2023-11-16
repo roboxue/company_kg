@@ -46,9 +46,28 @@ input CompanyInput {
     headcount: Int
 }
 
+type AcquisitionRow {
+    id: Int!
+    parent_company_id: Int!
+    acquired_company_id: Int!
+    merged_into_parent_company: Boolean!
+}
+
+type EntityLinkRow {
+    id: Int!
+    left_id: Int!
+    left_type: String!
+    right_id: Int!
+    right_type: String!
+    relationship_id: Int!
+    relationship_type: String!
+}
+
 type Query {
     company(companyId: Int!): Company
     person(personId: Int!): Person
+    debugAquisition: [AcquisitionRow!]!
+    debugEntityLink: [EntityLinkRow!]!
 }
 
 type Mutation {

@@ -1,7 +1,7 @@
 import enum
-from typing import List, Optional
-from sqlalchemy import Engine, Enum, Index, String, select
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from typing import Optional
+from sqlalchemy import Enum, Index, String
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class EntityType(enum.Enum):
@@ -78,34 +78,3 @@ class EntityLink(Base):
             f"right_id={self.right_id!r}, right_type={self.right_type!r}, " +\
             f"relationship_id={self.relationship_id!r}, relationship_type={self.relationship_type!r})"
 
-
-class DataStore():
-    def __init__(self, engine: Engine) -> None:
-        self.engine = engine
-
-    def get_company(self, ids: List[int]) -> List[dict]:
-        with Session(self.engine) as session:
-            stmt = select(Company).where(Company.id.in_(ids))
-            result_map = {c.id: {
-                "company_id": c.id,
-                "company_name": c.name,
-                "headcount": c.headcount
-            } for c in session.scalars(stmt)}
-            return [result_map.get(id) for id in ids]
-        
-    def get_employment(self, ids: List[int]) -> List[dict]:
-        with Session(self.engine) as session:
-            stmt = select(Employment).where(Employment.id.in_(ids))
-            result_map = {e.id: {
-                "person_id": e.person_id,
-                "company_id": e.company_id,
-                "employment_title": e.employment_title,
-                "start_date": e.start_date,
-                "end_date": e.end_date,
-                } for e in session.scalars(stmt)}
-            return [result_map.get(id) for id in ids]
-        
-    def get_person(self, ids: List[int]) -> List[dict]:
-        return [{
-            "person_id": id
-        } for id in ids]
